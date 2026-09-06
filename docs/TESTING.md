@@ -42,6 +42,8 @@ Not validated by synthetic tests: production reading of EDEB values, trip bounda
 
 The user's second report reproduces both displayed totals exactly with stored-value aggregates. The reader's new process has not yet been executed on Shadow, and native EDEB reset/scan transitions, live OBS and Tailscale still require real-environment acceptance. No personal totals or raw reports are stored as test fixtures.
 
+The Mac receiver LaunchAgent was installed and loaded locally during the 2026-09-06 session. `launchctl print gui/501/local.EliteTelemetryOverlay.receiver` reported `state = running`; `/health` returned 200 and listeners were present on loopback and `100.90.75.102:8765`. The Windows scheduled task still needs to be installed from Shadow with `scripts/install-shadow-task.ps1`.
+
 ## Live stream and animation follow-up
 
 The user confirmed the real source command, Shadow-to-Mac delivery, display in OBS and subsequent live value changes. They reported no animation and updates after system changes. The Mac in-app browser was observed reporting reduced motion; this is evidence for the likely animation cause, not a direct measurement inside OBS. Added explicit `motion=always`/`never` overrides and a page-local preview. Thirty Python tests and the JS formatting/animation-policy assertions pass; the in-app preview was captured with nonzero vertical reel transforms while reduced motion was enabled. Actual EDEB write timing and the override inside OBS remain to be confirmed by the user.

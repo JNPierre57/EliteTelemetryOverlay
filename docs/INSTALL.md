@@ -50,7 +50,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-shadow.ps1
 
 Comparer le premier nombre du log à **Current Exploration Trip**, jamais Overall History. Vérifier une augmentation. Une lecture indisponible est retentée automatiquement sans envoyer zéro. Une incompatibilité persistante nécessite un nouveau diagnostic, pas une réinstallation de Python.
 
-13. Démarrage automatique facultatif, uniquement après validation réelle : ouvrir le Planificateur de tâches → Créer une tâche de base → nom `EliteTelemetryOverlay Sender` → À l’ouverture de session → Démarrer un programme. Programme : chemin absolu vers `.venv\Scripts\python.exe` du dépôt. Arguments : `-m telemetry.sender --config config.local.json`. Champ **Démarrer dans** : chemin absolu du dépôt (sans guillemets). Dans les propriétés, choisir votre compte et « Exécuter uniquement si l’utilisateur est connecté », puis activer le redémarrage en cas d’échec toutes les minutes. Ne pas utiliser un compte SYSTEM : les données EDEB sont propres à votre utilisateur. Les logs sont visibles en lancement manuel ; ne pas activer l’automatisation tant que ce lancement n’est pas fiable. Pour désactiver, désactiver/supprimer cette tâche.
+13. Démarrage automatique facultatif, uniquement après validation réelle. Depuis PowerShell dans le dépôt, enregistrer une tâche pour l’utilisateur interactif :
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shadow-task.ps1
+Start-ScheduledTask -TaskName 'EliteTelemetryOverlay Sender'
+Get-ScheduledTask -TaskName 'EliteTelemetryOverlay Sender' | Get-ScheduledTaskInfo
+```
+
+La tâche utilise le Python et la configuration du dépôt, démarre à l’ouverture de session et redémarre jusqu’à trois fois avec un délai d’une minute. Elle ne tourne pas sous SYSTEM : les données EDEB appartiennent à votre utilisateur. Vérifier d’abord un lancement manuel fiable. Pour désactiver : `Unregister-ScheduledTask -TaskName 'EliteTelemetryOverlay Sender'`.
 
 ## Mac
 
