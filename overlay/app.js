@@ -2,6 +2,11 @@
 const digits = document.querySelector('#digits');
 const status = document.querySelector('#status');
 const main = document.querySelector('main');
+const parameters = new URLSearchParams(location.search);
+const motionMode = parameters.get('motion') || 'auto';
+const demo = parameters.get('demo') === '1';
+const demoValues = [1000000000, 1025000000, 2450000000, 12847563420, 12847563420, 250];
+const demoStart = performance.now();
 let settings, current = null, animations = [], cleanup = null;
 function fit() {
   main.style.transform = `scale(${Math.min(1, innerWidth / main.offsetWidth)})`;
@@ -13,7 +18,7 @@ function render(value) {
   animations = [];
   const text = formatCredits(value, settings.thousands_separator, settings.decimals);
   const previous = current === null ? '' : formatCredits(current, settings.thousands_separator, settings.decimals).padStart(text.length, '0');
-  const animate = current !== null && value > current && settings.animation_ms > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const animate = shouldAnimate(current, value, settings.animation_ms, matchMedia('(prefers-reduced-motion: reduce)').matches, motionMode);
   current = value;
   digits.replaceChildren();
   [...text].forEach((character, index) => {
@@ -55,9 +60,14 @@ async function poll() {
       document.body.style.fontFamily = settings.font_family;
       document.documentElement.style.setProperty('--size', settings.font_size + 'px');
     }
-    const response = await fetch('/api/value', {signal: AbortSignal.timeout(3000)});
-    if (!response.ok) throw new Error();
-    const data = await response.json();
+    let data;
+    if (demo) {
+      data = {value: demoValues[Math.floor((performance.now() - demoStart) / 2500) % demoValues.length], source: 'demo'};
+    } else {
+      const response = await fetch('/api/value', {signal: AbortSignal.timeout(3000)});
+      if (!response.ok) throw new Error();
+      data = await response.json();
+    }
     if (data.value !== null) render(data.value);
     status.textContent = data.source === 'demo' ? 'DEMO' : data.value === null ? 'Waiting for EDEB data' : '';
   } catch {

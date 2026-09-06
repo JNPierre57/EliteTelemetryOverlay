@@ -62,3 +62,5 @@ Install scripts create `config.local.json` only if absent, with a random token. 
 | `overlay.poll_ms` | 400; 250–5000 |
 
 `port` and the port in `receiver_url` must be changed together where relevant. Expected sub-second propagation applies to default healthy polling, independently of the visible animation's duration.
+
+Per-source animation override: `/overlay/?motion=always` enables reels even when the browser reports reduced motion; `motion=never` disables them and default `auto` respects the system preference. `/overlay/?demo=1&motion=always` runs a repeating page-local preview without posting or changing persisted state. Remove `demo=1` for live data. Source latency includes EDEB's own persistence delay; 0.5-second reads cannot expose values not yet saved by EDEB.

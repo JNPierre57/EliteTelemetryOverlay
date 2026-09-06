@@ -6,6 +6,7 @@ import logging
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 from .common import ROOT, allowed_ip, atomic_json, config, payload, timestamp
 
 
@@ -56,15 +57,16 @@ def handler(state, settings):
             self.wfile.write(body)
 
         def do_GET(self):
+            path = urlsplit(self.path).path
             routes = {'/overlay/': ('index.html', 'text/html; charset=utf-8'), '/overlay/style.css': ('style.css', 'text/css'), '/overlay/app.js': ('app.js', 'text/javascript'), '/overlay/format.js': ('format.js', 'text/javascript')}
-            if self.path == '/api/value':
+            if path == '/api/value':
                 self.reply(200, state.read())
-            elif self.path == '/api/config':
+            elif path == '/api/config':
                 self.reply(200, settings['overlay'])
-            elif self.path == '/health':
+            elif path == '/health':
                 self.reply(200, {'status': 'ok', 'timestamp': timestamp()})
-            elif self.path in routes:
-                name, kind = routes[self.path]
+            elif path in routes:
+                name, kind = routes[path]
                 self.reply(200, (ROOT / 'overlay' / name).read_bytes(), kind)
             else:
                 self.reply(404, {'error': 'not found'})

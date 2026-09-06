@@ -101,3 +101,29 @@ Les rapports initiaux ne distinguaient pas certains filtres parce que les valeur
 ## EDEB « snapshot changed », « rollback journal » ou « read unavailable »
 
 Une activité d’écriture peut empêcher une copie stable ; le sender retente automatiquement après deux secondes, sans écriture dans EDEB. Si l’erreur dure, vérifier `py -3 -m telemetry.source`, le chemin et les droits en lecture. Pour une base très volumineuse, augmenter `read_interval`. Ne supprimer aucun WAL/SHM/journal pour forcer la lecture. En cas de doute, fermer EDEB normalement, vérifier la lecture puis relancer EDEB.
+
+## Le montant augmente sans animation
+
+Par défaut, l’overlay respecte `prefers-reduced-motion`. Si macOS ou le navigateur demande de réduire les animations, les valeurs changent immédiatement même avec `animation_ms: 1100`.
+
+Pour autoriser explicitement les rouleaux dans cette seule source OBS, utiliser :
+
+```text
+http://127.0.0.1:8765/overlay/?motion=always
+```
+
+`motion=auto` (ou paramètre absent) respecte la préférence système ; `motion=never` désactive l’animation. Même en mode `always`, première lecture, valeur inchangée, baisse et durée zéro restent sans animation. Cette option ne modifie pas les réglages d’accessibilité du Mac.
+
+Un aperçu animé indépendant permet de tester sans toucher au montant réel :
+
+```text
+http://127.0.0.1:8765/overlay/?demo=1&motion=always
+```
+
+Il affiche DEMO et fait varier des nombres uniquement dans cette page, sans POST, sans lecture de la valeur réelle ni modification du cache receiver. Revenir ensuite à l’URL de production sans `demo=1`. Actualiser le cache de la Browser Source si nécessaire. Le receiver doit être à jour pour accepter les paramètres d’URL.
+
+## Le montant ne change qu’après un saut de système
+
+La lecture porte sur la base persistée d’EDEB, pas sur les valeurs internes de son interface. Le sender la relit toutes les 500 ms par défaut, puis l’overlay interroge le Mac toutes les 400 ms. Une écriture différée par EDEB retarde donc l’affichage même si le réseau est rapide.
+
+Ce comportement a été signalé pendant un stream, mais le moment exact des écritures EDEB n’a pas été instrumenté. Pour le distinguer d’un retard réseau, comparer le total dans l’interface EDEB et la commande `py -3 -m telemetry.source` avant puis après un saut, pendant que le sender tourne. Si le lecteur ne change qu’au saut, le délai se situe dans la donnée persistée ; si le lecteur change immédiatement mais pas OBS, examiner les logs réseau. Éviter de recalculer arbitrairement les gains des Journals ou de forcer une écriture dans EDEB.

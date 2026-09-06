@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const {formatCredits} = require('../overlay/format.js');
+const {formatCredits, shouldAnimate} = require('../overlay/format.js');
 assert.equal(formatCredits(12847563420), '12 847 563 420');
 assert.equal(formatCredits(0), '0');
 assert.equal(formatCredits(999999999999), '999 999 999 999');
@@ -8,3 +8,14 @@ assert.equal(formatCredits(1234, '.', 2), '1.234.00');
 assert.equal(formatCredits(1234, '$&'), '1$&234');
 for (const value of [-1, 1.5, '123', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => formatCredits(value));
 console.log('Credit formatting tests passed');
+
+assert.equal(shouldAnimate(null, 100, 1100, false), false);
+assert.equal(shouldAnimate(100, 100, 1100, false), false);
+assert.equal(shouldAnimate(100, 0, 1100, false), false);
+assert.equal(shouldAnimate(100, 200, 1100, false), true);
+assert.equal(shouldAnimate(100, 200, 1100, true), false);
+assert.equal(shouldAnimate(100, 200, 1100, true, 'always'), true);
+assert.equal(shouldAnimate(100, 200, 1100, false, 'never'), false);
+assert.equal(shouldAnimate(100, 200, 0, false, 'always'), false);
+assert.equal(shouldAnimate(100, 200, 1100, true, 'unknown'), false);
+console.log('Animation policy tests passed');

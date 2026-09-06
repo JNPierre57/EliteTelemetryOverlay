@@ -113,7 +113,7 @@ class ReceiverTests(unittest.TestCase):
         self.assertEqual(self.state.read()['value'], 12000)
 
     def test_static_and_secret_not_exposed(self):
-        for path in ('/api/config', '/api/value', '/health', '/overlay/', '/overlay/app.js', '/overlay/style.css', '/overlay/format.js'):
+        for path in ('/api/config', '/api/value', '/health', '/overlay/', '/overlay/?motion=always', '/overlay/?demo=1&motion=always', '/overlay/app.js', '/overlay/style.css', '/overlay/format.js'):
             connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port)
             connection.request('GET', path)
             response = connection.getresponse()
