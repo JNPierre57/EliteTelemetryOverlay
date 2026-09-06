@@ -12,6 +12,10 @@ import sqlite3
 import tempfile
 from pathlib import Path
 import time
+if __package__:
+    from .edeb_totals import compare_totals
+else:
+    from edeb_totals import compare_totals
 
 
 def signature(path):
@@ -27,7 +31,7 @@ def stamp(path):
     return stat.st_size, stat.st_mtime_ns
 
 
-def inspect_sqlite(path, include_samples=False):
+def inspect_sqlite(path, include_samples=False, expected=None):
     companions = [Path(str(path) + suffix) for suffix in ('', '-wal', '-shm', '-journal')]
     with tempfile.TemporaryDirectory(prefix='eto-inspect-') as directory:
         before = {str(p): stamp(p) for p in companions if p.exists()}
@@ -47,6 +51,10 @@ def inspect_sqlite(path, include_samples=False):
             connection.execute('PRAGMA query_only=ON')
             schema = connection.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
             result = {'schema': schema, 'schema_sha256': hashlib.sha256(json.dumps(schema).encode()).hexdigest(), 'user_version': connection.execute('PRAGMA user_version').fetchone()[0], 'snapshot_note': 'raw copy stable by size/mtime; not a guaranteed application-consistent snapshot'}
+            try:
+                result['edeb_value_comparison'] = compare_totals(connection, expected)
+            except sqlite3.Error as error:
+                result['edeb_value_comparison'] = {'status': 'failed', 'error': str(error)}
             if include_samples:
                 samples = {}
                 for kind, name, _, _ in schema:
@@ -58,8 +66,8 @@ def inspect_sqlite(path, include_samples=False):
             return result
 
 
-def inspect(root, samples=False):
-    result = {'format_version': 1, 'source': '%LOCALAPPDATA%/Elite Dangerous Exploration Buddy', 'files': [], 'conclusion': 'Trip boundaries and total semantics NOT verified by this report.'}
+def inspect(root, samples=False, expected=None):
+    result = {'format_version': 2, 'source': '%LOCALAPPDATA%/Elite Dangerous Exploration Buddy', 'files': [], 'conclusion': 'Trip boundaries and total semantics NOT verified by this report.'}
     for path in sorted(root.rglob('*')):
         if path.is_symlink() or not path.is_file():
             continue
@@ -68,7 +76,7 @@ def inspect(root, samples=False):
             entry['size'] = path.stat().st_size
             entry['format'] = signature(path)
             if entry['format'] == 'SQLite 3':
-                entry['inspection'] = inspect_sqlite(path, samples)
+                entry['inspection'] = inspect_sqlite(path, samples, expected)
         except (OSError, sqlite3.Error, ValueError) as error:
             entry['error'] = f'{type(error).__name__}: {error}'
         result['files'].append(entry)
@@ -83,13 +91,20 @@ def main():
     parser.add_argument('--root', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--include-samples', action='store_true')
+    parser.add_argument('--trip-value', type=int, help='Current Exploration Trip displayed at inspection time')
+    parser.add_argument('--history-value', type=int, help='Entire Exploration History displayed at inspection time')
     args = parser.parse_args()
+    expected = None
+    if args.trip_value is not None or args.history_value is not None:
+        if args.trip_value is None or args.history_value is None or min(args.trip_value, args.history_value) < 0:
+            parser.error('supply both nonnegative --trip-value and --history-value')
+        expected = {'trip': args.trip_value, 'history': args.history_value}
     root, output = args.root.resolve(), args.output.resolve()
     if not root.is_dir():
         parser.error('EDEB data directory does not exist')
     if output.is_relative_to(root):
         parser.error('report must be outside the EDEB directory')
-    report = inspect(root, args.include_samples)
+    report = inspect(root, args.include_samples, expected)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
     print(f'Report: {output}. Inspect locally before sharing; never commit it.')

@@ -6,7 +6,7 @@ EliteTelemetryOverlay affiche dans OBS sur un Mac la valeur estimée de l’exp�
 EDEB on Shadow → Tailscale → receiver on Mac → OBS Browser Source
 ```
 
-**État actuel : transport, persistance, overlay animé et diagnostic disponibles ; lecture réelle EDEB en attente du rapport Shadow.** Le schéma EDEB n’a pas été observé. Le sender normal refuse donc de démarrer, au lieu de publier un chiffre supposé. Il faut terminer et valider l’adaptateur à partir du diagnostic avant un stream réel. Voir [la découverte EDEB](docs/EDEB-DATA-SOURCE.md).
+**État actuel : transport, persistance, overlay animé et diagnostic disponibles ; lecture réelle EDEB en attente du rapport Shadow.** Le rapport Shadow a confirmé SQLite et les colonnes de valeur ; leurs sommes doivent encore être comparées au total affiché par EDEB. Le sender normal refuse donc de démarrer, au lieu de publier un chiffre supposé. Il faut terminer et valider l’adaptateur à partir du diagnostic avant un stream réel. Voir [la découverte EDEB](docs/EDEB-DATA-SOURCE.md).
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ Sur Shadow, première action pour débloquer EDEB :
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1
 ```
 
-Examiner `reports/edeb-inspection.json` et fournir les éléments décrits dans la documentation source. Ne jamais réinitialiser l’expédition pour installer cet outil.
+Examiner `reports/edeb-inspection.json` et fournir les éléments décrits dans la documentation source. Après le premier rapport, suivre la comparaison ciblée avec `-TripValue` et `-HistoryValue` décrite dans cette documentation. Ne jamais réinitialiser l’expédition pour installer cet outil.
 
 ## Installation et maintenance
 

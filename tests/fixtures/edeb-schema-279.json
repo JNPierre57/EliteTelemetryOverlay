@@ -1,0 +1,30 @@
+{
+  "provenance": "Schema only from user-supplied EDEB report; contains no database rows. Runtime user_version 279.",
+  "user_version": 279,
+  "schema": [
+    [
+      "table",
+      "Body",
+      "Body",
+      "CREATE TABLE Body (\r\n\t            Id INTEGER NOT NULL,\r\n\t            StarSystemId INTEGER NOT NULL,\r\n\t            Name TEXT NOT NULL,\r\n\t            Type INTEGER NOT NULL,\r\n\t            Distance REAL NOT NULL,\r\n\t            WasDiscovered INTEGER,\r\n\t            WasMapped INTEGER,\r\n                WasFootfalled INTEGER,\r\n\t            WasReadFromJournal INTEGER,\r\n\t            WasReadFromEdsm INTEGER,\r\n\t            EdsmDiscoveryCommander TEXT,\r\n\t            PlanetClass TEXT,\r\n\t            IsLandable INTEGER,\r\n\t            TerraformingState TEXT,\r\n\t            SurfaceScanned INTEGER,\r\n\t            Gravity REAL,\r\n\t            GeologicalCount INTEGER,\r\n\t            BiologicalCount INTEGER,\r\n\t            StarType TEXT,\r\n\t            SurfaceTemperature REAL,\r\n\t            Touchdown INTEGER,\r\n\t            Volcanism TEXT,\r\n\t            Atmosphere TEXT,\r\n\t            Radius REAL,\r\n\t            ParentStarId INTEGER,\r\n\t            ParentPlanetId INTEGER,\r\n\t            Mass REAL,\r\n                OrbitalInclination Real,\r\n\t            EfficientlyScanned INTEGER,\r\n\t            CartographicValue INTEGER,\r\n\t            CartographicMaxValue INTEGER,\r\n\t            CartographicBaseValue INTEGER,\r\n\t            CartographicFirstDiscoveryBonusValue INTEGER,\r\n\t            CartographicSurfaceScanValue INTEGER,\r\n\t            CartographicFirstSurfaceScanBonusValue INTEGER,\r\n\t            CartographicEfficientlyScannedBonusValue INTEGER,\r\n\t            CartographicFirstDiscoveryBonusWithoutEfficiencyValue INTEGER,\r\n\t            CartographicFirstDiscoveryBonusWithoutSurfaceScanValue INTEGER,\r\n\t            RingsReserveLevel INTEGER NOT NULL,\r\n\t            FOREIGN KEY(StarSystemId) REFERENCES StarSystem(Id),\r\n\t            PRIMARY KEY(StarSystemId, Id)\r\n            )"
+    ],
+    [
+      "table",
+      "Genus",
+      "Genus",
+      "CREATE TABLE Genus (\r\n\t            Name TEXT NOT NULL,\r\n\t            BodyId INTEGER NOT NULL,\r\n\t            StarSystemId INTEGER NOT NULL,\r\n\t            Species TEXT,\r\n\t            Variant TEXT,\r\n\t            ScanCount INTEGER,\r\n\t            AnalysisComplete INTEGER,\r\n\t            VistaGenomicsValue INTEGER,\r\n\t            LongitudeAt1stScan REAL,\r\n\t            LatitudeAt1stScan REAL,\r\n\t            LongitudeAt2ndScan REAL,\r\n\t            LatitudeAt2ndScan REAL,\r\n\t            VistaGenomicsMaxValue INTEGER,\r\n\t            VistaGenomicsBaseValue INTEGER,\r\n\t            VistaGenomicsFirstDiscoveryBonusValue INTEGER,\r\n\t            IsFirstDiscovery INTEGER,\r\n                WasLogged INTEGER,\r\n\t            FOREIGN KEY(StarSystemId, BodyId) REFERENCES Body(StarSystemId, Id),\r\n\t            PRIMARY KEY(StarSystemId, BodyId, Name)\r\n            )"
+    ],
+    [
+      "table",
+      "Ring",
+      "Ring",
+      "CREATE TABLE Ring (\r\n                Name TEXT NOT NULL,\r\n                BodyId INTEGER NOT NULL,\r\n                StarSystemId INTEGER NOT NULL,\r\n                Type INTEGER NOT NULL,\r\n                Mass INTEGER NOT NULL,\r\n                InnerRadius INTEGER NOT NULL,\r\n                OuterRadius INTEGER NOT NULL,\r\n                Width INTEGER NOT NULL,\r\n                Density REAL NOT NULL,\r\n                FOREIGN KEY(StarSystemId, BodyId) REFERENCES Body(StarSystemId, Id),\r\n                PRIMARY KEY(StarSystemId, BodyId, Name)\r\n            )"
+    ],
+    [
+      "table",
+      "StarSystem",
+      "StarSystem",
+      "CREATE TABLE StarSystem (\r\n\t            Id INTEGER NOT NULL,\r\n\t            Name TEXT NOT NULL,\r\n\t            StarClass TEXT NOT NULL,\r\n\t            PrimaryStarName TEXT,\r\n\t            TotalBodyCount INTEGER,\r\n\t            TotalNonBodyCount INTEGER,\r\n\t            WasReadFromJournal INTEGER,\r\n\t            WasReadFromEdsm INTEGER,\r\n\t            WasRequestedFromEdsm INTEGER,\r\n\t            EdsmName TEXT,\r\n\t            EdsmPrimaryStarType TEXT,\r\n\t            EdsmPrimaryStarName TEXT,\r\n\t            EdsmPrimaryStarIsScoopable INTEGER,\r\n\t            EdsmTotalBodyCount INTEGER,\r\n\t            StarPositionX REAL,\r\n\t            StarPositionY REAL,\r\n\t            StarPositionZ REAL,\r\n\t            IsTripHistory INTEGER NOT NULL DEFAULT 0,\r\n\t            AllBodiesFound INTEGER,\r\n\t            Population INTEGER,\r\n\t            PRIMARY KEY(Id)\r\n            )"
+    ]
+  ]
+}

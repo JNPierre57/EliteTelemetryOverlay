@@ -1,6 +1,6 @@
 # EDEB data source — discovery status
 
-**The real EDEB reader is not implemented or validated.** No Shadow files or EDEB executable were accessible in this workspace on 2026-09-06. The repository initially contained no files. Production sender therefore exits with an explicit error before sending anything. This is a deliberate boundary, not a working EDEB integration. The demo exercises the rest of the system.
+**The real EDEB reader is not implemented or validated.** Initially no Shadow data was available. A user-supplied inspection report now confirms the database schema below; database rows and executable are still unavailable here. Production sender therefore exits with an explicit error before sending anything. This is a deliberate boundary, not a working EDEB integration. The demo exercises the rest of the system.
 
 ## What is verified
 
@@ -8,7 +8,7 @@ The [official EDEB page](https://www.panostrede.de/EDEB/) describes separate cur
 
 The [official changelog](https://www.panostrede.de/EDEB/changelog.html) records historical changes to cartographic valuation and database compatibility. It does not document a usable schema or total-value query. Public documentation is insufficient to establish the persistence semantics of the current trip. Consulted 2026-09-06.
 
-The paths below were supplied by the project owner, not observed on this Mac:
+The data root was supplied by the owner; the subsequent Shadow report confirms `db\EDEB.db` beneath it:
 
 ```text
 %LOCALAPPDATA%\Elite Dangerous Exploration Buddy\
@@ -17,12 +17,37 @@ The paths below were supplied by the project owner, not observed on this Mac:
 
 | Required finding | Current evidence |
 | --- | --- |
-| Exact database engine | Unknown; do not assume SQLite from the `.db` directory |
-| Useful files | Unknown; diagnostic inventories relative names and signatures |
-| Start/reset marker | Unknown; no installation-time baseline is created |
-| Stored total versus recalculated total | Unknown |
-| Table/field/query matching EDEB | Unknown; no invented SQL adapter shipped |
-| EDEB version tested against real data | None; target requested: 2.7.9 |
+| Exact database engine | SQLite 3, confirmed by the Shadow diagnostic signature |
+| Useful files | `db\EDEB.db`; observed `PRAGMA user_version = 279` |
+| Start/reset marker | `StarSystem.IsTripHistory INTEGER NOT NULL DEFAULT 0` exists; actual reset behavior still unverified |
+| Stored total versus recalculated total | Per-body `CartographicValue` and per-genus `VistaGenomicsValue` exist; no dedicated total table in reported schema |
+| Table/field/query matching EDEB | Candidate sums documented below; row totals still need comparison to EDEB |
+| EDEB version tested against real data | Report inspected with schema version 279; no production value read validated |
+
+## Targeted value comparison after the first report
+
+The observed schema contains `Body` (key: system + body), `Genus` (key: system + body + name), `StarSystem`, and `Ring`. `tests/fixtures/edeb-schema-279.json` retains only the table definitions from the report; it contains no user rows, travel history or displayed totals. The first report contains **schema only**, so the two totals supplied alongside it cannot yet validate any SQL sum.
+
+The updated inspector now aggregates the existing EDEB value columns on its temporary copy. It does not recalculate bonus formulas. It reports three scopes: systems with `IsTripHistory = 1`, all systems, and systems with `IsTripHistory = 0`. For each scope it reports:
+
+- Cartography: all bodies, and separately only `WasReadFromJournal = 1` bodies.
+- Biology: all genera, and separately only `AnalysisComplete = 1` genera.
+- The four combinations of these component sums, with differences against the displayed totals if supplied.
+- NULL/invalid values, orphan row counts and trip-flag distribution to expose assumptions rather than silently hide inconsistencies.
+
+Body and genus sums are **separate**. Joining bodies directly to multiple genera would multiply cartographic values. Stored total columns are used without adding their bonus component columns a second time. NULL values contribute zero for this diagnostic only and their counts are retained; the intended production semantics still need validation.
+
+On Shadow, update with `git pull --ff-only`. Then supply the two **current** displayed totals as integer arguments, without spaces or separators:
+
+```powershell
+$trip = Read-Host 'Current Exploration Trip, digits only'
+$history = Read-Host 'Entire Exploration History, digits only'
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1 -TripValue $trip -HistoryValue $history -OutputPath .\reports\edeb-values.json
+```
+
+Keep EDEB/game activity still while recording the displayed totals and running the comparison. If the values have changed since the earlier report, use the newer values. Send `reports/edeb-values.json` after local review. No `-IncludeSamples` is needed: the new section `edeb_value_comparison` contains aggregate numbers, not names or coordinates.
+
+`matching_pairs` lists candidate filters that reproduce **both** the trip-flag-1 total and the all-systems history total. An empty list means no exact match; several entries mean the sample does not distinguish the filters. Even one match is evidence for one snapshot, not proof of the underlying reset or scan semantics. The production sender stays disabled while those semantics are unverified.
 
 ## Run discovery on Shadow
 
