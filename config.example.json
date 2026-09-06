@@ -1,0 +1,18 @@
+{
+  "token": "CHANGE_ME_CHANGE_ME_CHANGE_ME_CHANGE_ME_",
+  "port": 8765,
+  "tailscale_ip": "",
+  "receiver_url": "http://127.0.0.1:8765",
+  "state_file": "data/last-value.json",
+  "read_interval": 0.5,
+  "overlay": {
+    "label": "EXPLORATION VALUE",
+    "suffix": "Cr",
+    "font_size": 64,
+    "font_family": "Menlo, Consolas, monospace",
+    "animation_ms": 1100,
+    "decimals": 0,
+    "thousands_separator": " ",
+    "poll_ms": 400
+  }
+}

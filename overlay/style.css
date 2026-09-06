@@ -1,0 +1,14 @@
+:root { color-scheme: dark; --size: 64px; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: transparent !important; overflow: hidden; }
+body { font-family: Menlo, Consolas, monospace; color: #ffba68; }
+main { padding: 16px; width: max-content; transform-origin: top left; }
+#label { font-size: 16px; letter-spacing: .18em; margin-bottom: 8px; }
+#counter { display: flex; align-items: baseline; white-space: nowrap; font-size: var(--size); line-height: 1.15; font-variant-numeric: tabular-nums; text-shadow: 0 2px 4px #0008; }
+#digits { display: inline-flex; }
+#suffix { font-size: .42em; margin-left: .45em; }
+.digit { display: inline-block; width: .64em; height: 1.15em; overflow: hidden; }
+.reel { display: block; }
+.reel span { display: block; height: 1.15em; text-align: center; }
+.separator { white-space: pre; }
+#status { font-size: 12px; margin-top: 6px; color: #bbb; }

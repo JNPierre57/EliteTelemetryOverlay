@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+config.local.json
+.env
+.env.*
+!.env.example
+data/
+reports/
+*.db
+*.sqlite*
+*.log
+.DS_Store

@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const {formatCredits} = require('../overlay/format.js');
+assert.equal(formatCredits(12847563420), '12 847 563 420');
+assert.equal(formatCredits(0), '0');
+assert.equal(formatCredits(999999999999), '999 999 999 999');
+assert.equal(formatCredits(Number.MAX_SAFE_INTEGER), '9 007 199 254 740 991');
+assert.equal(formatCredits(1234, '.', 2), '1.234.00');
+assert.equal(formatCredits(1234, '$&'), '1$&234');
+for (const value of [-1, 1.5, '123', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => formatCredits(value));
+console.log('Credit formatting tests passed');
