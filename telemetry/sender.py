@@ -6,7 +6,7 @@ import socket
 import time
 from urllib.parse import urlsplit
 from .common import allowed_ip, config, credits, timestamp
-from .source import read_current_trip, UnverifiedSourceError
+from .source import read_current_trip, SourceError
 
 
 class HTTPStatusError(ConnectionError):
@@ -82,16 +82,28 @@ def main():
                 time.sleep(2)
             return
         previous = None
+        source_error = None
+        next_error_log = 0
         while True:
-            value = read_current_trip()
+            try:
+                value = read_current_trip(settings.get('edeb_db_path'))
+            except SourceError as error:
+                now = time.monotonic()
+                message = str(error)
+                if source_error is None or now >= next_error_log:
+                    logging.warning('[EDEB] %s; retry in 2s (last value retained)', message)
+                    next_error_log = now + 30
+                source_error = message
+                time.sleep(2)
+                continue
+            if source_error is not None:
+                logging.info('[EDEB] Reading recovered')
+                source_error = None
             if value != previous:
                 logging.info('[EDEB] Current trip value: %s Cr', f'{value:,}')
                 previous = value
             sender.step(value)
             time.sleep(settings['read_interval'])
-    except UnverifiedSourceError as error:
-        logging.error('[EDEB] %s', error)
-        raise SystemExit(2) from None
     except KeyboardInterrupt:
         pass
 

@@ -3,7 +3,7 @@
 ```mermaid
 flowchart LR
     ED[Elite Dangerous / Journals] --> EDEB[EDEB Current Exploration Trip]
-    EDEB -->|adapter pending verification| S[Shadow Python sender]
+    EDEB -->|stored values / private snapshot| S[Shadow Python sender]
     S -->|HTTP JSON + Bearer token over Tailscale| R[Mac Python receiver]
     R --> P[Atomic local JSON persistence]
     OBS[OBS Browser Source] -->|GET every 400 ms on loopback| R
@@ -29,7 +29,7 @@ One sender and one commander are supported. The timestamp is an observation time
 
 Default port: 8765, configurable. One listener binds `127.0.0.1`, another binds the configured `tailscale_ip` (IPv4 in `100.64.0.0/10`). Wildcard/LAN/public listener addresses are rejected. Tailscale must already be active when the receiver binds its IP. The sender resolves MagicDNS or an IP to IPv4, validates every returned address as loopback/Tailscale and connects directly to the validated address. It ignores HTTP proxy environment settings and does not follow redirects. IPv6-only destinations are currently unsupported.
 
-The real reader is deliberately disabled until verified. Once implemented, successful reads are polled every 0.5 seconds. Only values differing from the last acknowledged value are sent; the first read after sender startup is always sent, even for an old expedition. Errors cause retries after 2, 4, 8, 16, then 30 seconds. Latest observations supersede failed older updates. On successful acknowledgement backoff resets. No periodic POST heartbeat or queue of obsolete totals is maintained. A Mac restart preserves its state; if that state is manually removed while the sender stays running at an unchanged value, restart the sender to republish it.
+The reader sums stored EDEB cartographic and biological values for systems marked as current-trip. It uses a schema/version allowlist and refuses readings if the matching filter variants disagree. Reads use private byte-checked snapshots; no SQLite connection opens the originals. Successful reads are polled every 0.5 seconds. Source errors send nothing, retry after two seconds, and log at most once every 30 seconds until recovery. See EDEB-DATA-SOURCE.md for snapshot limitations. Only values differing from the last acknowledged value are sent; the first read after sender startup is always sent, even for an old expedition. Errors cause retries after 2, 4, 8, 16, then 30 seconds. Latest observations supersede failed older updates. On successful acknowledgement backoff resets. No periodic POST heartbeat or queue of obsolete totals is maintained. A Mac restart preserves its state; if that state is manually removed while the sender stays running at an unchanged value, restart the sender to republish it.
 
 The receiver serializes state updates under a lock, writes a temporary file, flushes/fsyncs it, then atomically replaces the state file before returning 200. This protects against ordinary process restarts and partial writes. It is not a backup guarantee against disk loss. An unreadable/corrupt state file stops startup explicitly rather than showing zero. State paths are relative to the configuration file. Demo state uses the `.demo` suffix. Do not run multiple receiver processes against the same state file.
 
@@ -51,6 +51,7 @@ Install scripts create `config.local.json` only if absent, with a random token. 
 | `receiver_url` | `http://127.0.0.1:8765`; on Shadow use Mac MagicDNS/IP and matching port |
 | `state_file` | `data/last-value.json`; relative to config file |
 | `read_interval` | 0.5 seconds; range 0.1–60 |
+| `edeb_db_path` | Optional, empty/missing uses the standard Windows LOCALAPPDATA path; otherwise absolute path recommended |
 | `overlay.label` | EXPLORATION VALUE |
 | `overlay.suffix` | Cr |
 | `overlay.font_size` | 64 pixels; 12–200 |

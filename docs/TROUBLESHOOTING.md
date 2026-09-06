@@ -10,7 +10,7 @@ Un tiret signifie qu’aucune donnée n’a été reçue. Un zéro signifie un v
 curl --fail http://127.0.0.1:8765/api/value
 ```
 
-`source: demo` indique la démo. Ne pas confondre ses données et la production. Le sender EDEB est actuellement bloqué jusqu’à inspection/implémentation de l’adaptateur : consulter [la source](EDEB-DATA-SOURCE.md).
+`source: demo` indique la démo. Ne pas confondre ses données et la production. Vérifier la lecture réelle sur Shadow avec `py -3 -m telemetry.source` : une erreur conserve la dernière valeur, sans publier zéro. Consulter [la source](EDEB-DATA-SOURCE.md).
 
 ## OBS affiche une ancienne valeur
 
@@ -55,7 +55,7 @@ sh scripts/start-mac.sh
 
 ## EDEB mis à jour / schéma incompatible
 
-Le lecteur n’a aucune compatibilité réelle certifiée aujourd’hui. Une fois l’adaptateur ajouté, toute incompatibilité devra bloquer la lecture et préserver la dernière valeur. Après mise à jour EDEB, relancer :
+Le lecteur accepte le schéma et la version de base 279 observés sur Shadow. Toute incompatibilité bloque les envois et préserve la dernière valeur, avec reprise automatique si la source redevient lisible. Après mise à jour EDEB, relancer :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1 -OutputPath .\reports\edeb-after-update.json
@@ -92,4 +92,12 @@ Les logs LaunchAgent ne sont pas automatiquement tournants : les archiver/suppri
 
 ## Nouvelle expédition après Reset Exploration Trip Data
 
-Le receiver accepte zéro et toutes les baisses, sans défilement inverse. Si l’ancien chiffre reste présent, vérifier d’abord la valeur native EDEB, puis la source et la connectivité. Ne pas effacer le cache comme solution à un lecteur incorrect. La détection réelle du reset EDEB reste un test indispensable à l’adaptateur à venir.
+Le receiver accepte zéro et toutes les baisses, sans défilement inverse. Si l’ancien chiffre reste présent, vérifier d’abord la valeur native EDEB, puis la source et la connectivité. Ne pas effacer le cache comme solution à un lecteur incorrect. Le lecteur suit les marqueurs de trip à chaque lecture ; le reset natif EDEB reste à vérifier lors de votre prochain vrai départ.
+
+## EDEB « filters no longer agree »
+
+Les rapports initiaux ne distinguaient pas certains filtres parce que les valeurs non complétées/non issues des Journals étaient nulles au sens numérique (zéro). Si ces lignes portent désormais une valeur non nulle, le lecteur refuse de choisir une formule sans preuve. Il conserve le dernier total et retente. Après stabilisation d’EDEB, relancer le diagnostic avec `-TripValue` et `-HistoryValue` comme indiqué dans [EDEB-DATA-SOURCE.md](EDEB-DATA-SOURCE.md), puis comparer les filtres.
+
+## EDEB « snapshot changed », « rollback journal » ou « read unavailable »
+
+Une activité d’écriture peut empêcher une copie stable ; le sender retente automatiquement après deux secondes, sans écriture dans EDEB. Si l’erreur dure, vérifier `py -3 -m telemetry.source`, le chemin et les droits en lecture. Pour une base très volumineuse, augmenter `read_interval`. Ne supprimer aucun WAL/SHM/journal pour forcer la lecture. En cas de doute, fermer EDEB normalement, vérifier la lecture puis relancer EDEB.

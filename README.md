@@ -6,7 +6,7 @@ EliteTelemetryOverlay affiche dans OBS sur un Mac la valeur estimée de l’exp�
 EDEB on Shadow → Tailscale → receiver on Mac → OBS Browser Source
 ```
 
-**État actuel : transport, persistance, overlay animé et diagnostic disponibles ; lecture réelle EDEB en attente du rapport Shadow.** Le rapport Shadow a confirmé SQLite et les colonnes de valeur ; leurs sommes doivent encore être comparées au total affiché par EDEB. Le sender normal refuse donc de démarrer, au lieu de publier un chiffre supposé. Il faut terminer et valider l’adaptateur à partir du diagnostic avant un stream réel. Voir [la découverte EDEB](docs/EDEB-DATA-SOURCE.md).
+**État actuel : lecteur EDEB, transport, persistance et overlay disponibles.** Les sommes extraites du rapport Shadow correspondent exactement aux deux totaux affichés par EDEB. Le lecteur utilise ce schéma vérifié et refuse les données incompatibles ou ambiguës. Il reste à tester son exécution sur Shadow et le flux réel dans OBS ; voir [la source EDEB et ses limites](docs/EDEB-DATA-SOURCE.md).
 
 ## Quick Start
 
@@ -31,13 +31,14 @@ http://127.0.0.1:8765/overlay/
 
 La démo démarre à un milliard, augmente, passe à plusieurs milliards, puis teste une diminution et zéro. Elle porte le libellé DEMO et utilise une persistance distincte. À la première ouverture, la valeur est affichée directement. Les augmentations suivantes animent les rouleaux ; les diminutions sont immédiates. Ctrl+C arrête un service. Ne pas lancer deux receivers sur le même port.
 
-Sur Shadow, première action pour débloquer EDEB :
+Sur Shadow, pour vérifier la lecture réelle sans config ni réseau :
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1
+git pull --ff-only
+py -3 -m telemetry.source
 ```
 
-Examiner `reports/edeb-inspection.json` et fournir les éléments décrits dans la documentation source. Après le premier rapport, suivre la comparaison ciblée avec `-TripValue` et `-HistoryValue` décrite dans cette documentation. Ne jamais réinitialiser l’expédition pour installer cet outil.
+Comparer le chiffre à **Current Exploration Trip** dans EDEB. Ne jamais réinitialiser l’expédition pour installer cet outil. Pour la connexion continue vers le Mac, suivre le guide d’installation. Le diagnostic `tools/inspect-edeb.ps1` reste disponible en cas d’écart ou de mise à jour EDEB.
 
 ## Installation et maintenance
 

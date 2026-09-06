@@ -5,6 +5,7 @@
   "receiver_url": "http://127.0.0.1:8765",
   "state_file": "data/last-value.json",
   "read_interval": 0.5,
+  "edeb_db_path": "",
   "overlay": {
     "label": "EXPLORATION VALUE",
     "suffix": "Cr",

@@ -1,6 +1,6 @@
 # Reinstalling from scratch
 
-Cette procédure suppose Windows 11 sur Shadow et macOS Apple Silicon sur le Mac. Il n’est pas nécessaire de se souvenir de l’ancienne installation. **L’intégration EDEB réelle reste à finaliser après inspection : les étapes de démo fonctionnent, mais le sender normal s’arrête explicitement aujourd’hui.**
+Cette procédure suppose Windows 11 sur Shadow et macOS Apple Silicon sur le Mac. Il n’est pas nécessaire de se souvenir de l’ancienne installation. **Le lecteur EDEB est disponible pour le schéma observé (version de base 279). Les sommes du rapport Shadow correspondent à EDEB ; vérifier maintenant le lecteur sur votre installation avant de streamer.**
 
 Une réinstallation ne peut pas recréer une expédition disparue : conserver une sauvegarde EDEB et les Journals avant de remplacer le Shadow. Restaurer EDEB suivant ses procédures, puis vérifier le Current Exploration Trip dans EDEB lui-même. EliteTelemetryOverlay ne restaure ni ne modifie ces données.
 
@@ -21,19 +21,20 @@ Set-Location EliteTelemetryOverlay
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-shadow.ps1
 ```
 
-Alternative : télécharger ZIP depuis GitHub, décompresser, ouvrir PowerShell dans le dossier contenant README.md puis exécuter le script d’installation. Aucun remote GitHub n’est préconfiguré dans ce projet local.
+Alternative : télécharger ZIP depuis GitHub, décompresser, ouvrir PowerShell dans le dossier contenant README.md puis exécuter le script d’installation. Le dépôt est publié sur https://github.com/JNPierre57/EliteTelemetryOverlay.
 
 8. Le script crée `.venv` et `config.local.json`, sans écraser une configuration existante. Ouvrir `notepad .\config.local.json`.
 9. Dans `receiver_url`, mettre `http://<nom-MagicDNS-du-Mac>:8765` ou `http://<IP-Tailscale-du-Mac>:8765`. Remplacer les chevrons et leur contenu. Le champ `tailscale_ip` est utilisé seulement par le receiver sur Mac, pas par le sender.
 10. Copier **la valeur du token du Mac** dans le champ `token` du Shadow via un moyen privé. Les deux installations génèrent initialement des secrets différents : il faut les aligner. Ne pas inclure le token dans une capture, un commit ou un message de diagnostic.
-11. Exécuter l’inspection avant d’essayer la lecture réelle :
+11. Vérifier la lecture réelle sans envoyer de données au Mac :
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1
-Get-Content .\reports\edeb-inspection.json
+py -3 -m telemetry.source
 ```
 
-Suivre [EDEB-DATA-SOURCE.md](EDEB-DATA-SOURCE.md) pour fournir le schéma/rapport et la valeur actuelle affichée. L’adaptateur devra être implémenté et testé avec ces preuves. Le diagnostic n’active pas automatiquement un lecteur.
+Le programme détecte automatiquement `%LOCALAPPDATA%\Elite Dangerous Exploration Buddy\db\EDEB.db` et affiche le total existant avec ses composantes. Comparer à Current Exploration Trip dans EDEB. Pour un emplacement personnalisé, ajouter `edeb_db_path` dans `config.local.json` (chemin absolu ; doubler les antislashs JSON ou utiliser `/`). La commande ponctuelle accepte également `--database 'D:\Custom EDEB\db\EDEB.db'`.
+
+En cas de schéma incompatible, d’ambiguïté des filtres ou d’écart, suivre [EDEB-DATA-SOURCE.md](EDEB-DATA-SOURCE.md) et lancer le diagnostic. Ne pas masquer l’erreur avec un offset ou un reset.
 
 12. Après démarrage du receiver Mac en démo, tester la chaîne depuis Shadow :
 
@@ -41,13 +42,13 @@ Suivre [EDEB-DATA-SOURCE.md](EDEB-DATA-SOURCE.md) pour fournir le schéma/rappor
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-shadow.ps1 -Demo
 ```
 
-Le receiver Mac doit avoir été démarré avec `--demo`. Pour la production, après validation de l’adaptateur seulement :
+Le receiver Mac doit avoir été démarré avec `--demo`. Pour la lecture réelle, après comparaison réussie avec EDEB et configuration du Mac :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-shadow.ps1
 ```
 
-Comparer le premier nombre du log à **Current Exploration Trip**, jamais Overall History. Vérifier une augmentation. Si la lecture n’est pas encore activée, le message `EDEB schema not verified` est attendu ; il n’est pas nécessaire de réinstaller Python.
+Comparer le premier nombre du log à **Current Exploration Trip**, jamais Overall History. Vérifier une augmentation. Une lecture indisponible est retentée automatiquement sans envoyer zéro. Une incompatibilité persistante nécessite un nouveau diagnostic, pas une réinstallation de Python.
 
 13. Démarrage automatique facultatif, uniquement après validation réelle : ouvrir le Planificateur de tâches → Créer une tâche de base → nom `EliteTelemetryOverlay Sender` → À l’ouverture de session → Démarrer un programme. Programme : chemin absolu vers `.venv\Scripts\python.exe` du dépôt. Arguments : `-m telemetry.sender --config config.local.json`. Champ **Démarrer dans** : chemin absolu du dépôt (sans guillemets). Dans les propriétés, choisir votre compte et « Exécuter uniquement si l’utilisateur est connecté », puis activer le redémarrage en cas d’échec toutes les minutes. Ne pas utiliser un compte SYSTEM : les données EDEB sont propres à votre utilisateur. Les logs sont visibles en lancement manuel ; ne pas activer l’automatisation tant que ce lancement n’est pas fiable. Pour désactiver, désactiver/supprimer cette tâche.
 
@@ -81,7 +82,7 @@ sh scripts/install-mac.sh
 sh scripts/start-mac.sh --demo
 ```
 
-Pour le stream réel après validation de l’adaptateur, arrêter avec Ctrl+C puis lancer `sh scripts/start-mac.sh` sans `--demo`. Autoriser Python dans le pare-feu macOS si celui-ci bloque les connexions entrantes ; aucune redirection de port sur votre routeur. Ne pas activer Tailscale Funnel.
+Pour le stream réel après vérification du lecteur sur Shadow, arrêter avec Ctrl+C puis lancer `sh scripts/start-mac.sh` sans `--demo`. Autoriser Python dans le pare-feu macOS si celui-ci bloque les connexions entrantes ; aucune redirection de port sur votre routeur. Ne pas activer Tailscale Funnel.
 
 9. Dans un autre Terminal :
 
@@ -115,7 +116,7 @@ Un ping Tailscale réussi ne suffit pas à prouver que le port HTTP est autoris�
 
 ## Starting a normal streaming session
 
-Après validation du lecteur EDEB :
+Après comparaison du lecteur avec le total EDEB :
 
 1. Lancer Tailscale sur les deux machines.
 2. Lancer Elite puis EDEB sur Shadow et vérifier le bon commandant/current trip.
@@ -128,7 +129,7 @@ Pas besoin de réinstaller ni de régénérer le token à chaque session. Ne pas
 
 ## Starting a new Elite exploration trip
 
-Lorsque vous souhaitez **réellement** commencer une nouvelle expédition, utiliser le menu EDEB **Reset Exploration Trip Data**, qui concerne le trip et non l’historique global. Ne pas supprimer la base ni réinstaller EDEB. Le futur lecteur validé devra suivre le nouveau trip ; le transport accepte déjà toute diminution, y compris zéro, la persiste et l’affiche immédiatement sans animation inverse. Comparer après reset avec EDEB avant de lancer le stream. Ce comportement côté source devra être testé lors d’un vrai nouveau départ, pas en sacrifiant l’expédition actuelle.
+Lorsque vous souhaitez **réellement** commencer une nouvelle expédition, utiliser le menu EDEB **Reset Exploration Trip Data**, qui concerne le trip et non l’historique global. Ne pas supprimer la base ni réinstaller EDEB. Le lecteur suit les systèmes marqués `IsTripHistory = 1` ; le transport accepte toute diminution, y compris zéro, la persiste et l’affiche immédiatement sans animation inverse. Comparer après reset avec EDEB avant de lancer le stream. Le changement de marqueurs est testé sur fixtures ; le comportement du reset natif EDEB doit encore être vérifié lors d’un vrai nouveau départ, pas en sacrifiant l’expédition actuelle.
 
 ## Updates, backup, removal
 

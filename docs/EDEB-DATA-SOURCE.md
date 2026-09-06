@@ -1,43 +1,94 @@
-# EDEB data source — discovery status
+# EDEB data source
 
-**The real EDEB reader is not implemented or validated.** Initially no Shadow data was available. A user-supplied inspection report now confirms the database schema below; database rows and executable are still unavailable here. Production sender therefore exits with an explicit error before sending anything. This is a deliberate boundary, not a working EDEB integration. The demo exercises the rest of the system.
+**A guarded reader is now implemented.** Two user-supplied Shadow reports established the schema and showed that the candidate sums reproduce both the displayed Current Exploration Trip and Entire Exploration History exactly. This is a real-data comparison for one observed state, not a claim that every EDEB scan/reset scenario has been validated.
 
-## What is verified
+## Observed evidence
 
-The [official EDEB page](https://www.panostrede.de/EDEB/) describes separate current-trip and overall-history data, an estimated total including Vista Genomics, and a native trip-reset command. Its download link names version 2.7.9.
+| Finding | Evidence |
+| --- | --- |
+| Engine | SQLite 3, file header identified on Shadow |
+| File | `%LOCALAPPDATA%\Elite Dangerous Exploration Buddy\db\EDEB.db` |
+| Database version | `PRAGMA user_version = 279` (target application: EDEB 2.7.9) |
+| Tables | `StarSystem`, `Body`, `Genus`, `Ring` |
+| Current-trip selection | `StarSystem.IsTripHistory = 1` selects data whose sums match the displayed current trip |
+| Cartography | `Body.CartographicValue`, related by `Body.StarSystemId = StarSystem.Id` |
+| Exobiology | `Genus.VistaGenomicsValue`, related by `Genus.StarSystemId = StarSystem.Id` |
+| Overall history | The same component sums across all systems match the displayed entire history |
+| Total storage | No dedicated total table appears in the schema; the reader sums stored component values |
+| Actual EDEB reset implementation | Not observed; do not reset the user's expedition merely to test it |
 
-The [official changelog](https://www.panostrede.de/EDEB/changelog.html) records historical changes to cartographic valuation and database compatibility. It does not document a usable schema or total-value query. Public documentation is insufficient to establish the persistence semantics of the current trip. Consulted 2026-09-06.
-
-The data root was supplied by the owner; the subsequent Shadow report confirms `db\EDEB.db` beneath it:
+Schema fingerprint observed:
 
 ```text
-%LOCALAPPDATA%\Elite Dangerous Exploration Buddy\
-%LOCALAPPDATA%\Elite Dangerous Exploration Buddy\db\
+baab7ca412995e8f91c36f2baa8b51b50206e1ff8368335758ad0cc450e4fdf5
 ```
 
-| Required finding | Current evidence |
-| --- | --- |
-| Exact database engine | SQLite 3, confirmed by the Shadow diagnostic signature |
-| Useful files | `db\EDEB.db`; observed `PRAGMA user_version = 279` |
-| Start/reset marker | `StarSystem.IsTripHistory INTEGER NOT NULL DEFAULT 0` exists; actual reset behavior still unverified |
-| Stored total versus recalculated total | Per-body `CartographicValue` and per-genus `VistaGenomicsValue` exist; no dedicated total table in reported schema |
-| Table/field/query matching EDEB | Candidate sums documented below; row totals still need comparison to EDEB |
-| EDEB version tested against real data | Report inspected with schema version 279; no production value read validated |
+The report showed no NULL/invalid monetary values or orphan rows. All-body versus journal-only cartography totals were equal. All-genus versus completed-only biology totals were also equal, including across overall history. Incomplete biology rows and non-journal bodies contributed zero in this sample. Hence **all four candidate filter combinations matched**: these reports cannot prove which optional filters EDEB itself applies.
 
-## Targeted value comparison after the first report
+`tests/fixtures/edeb-schema-279.json` contains only the observed table definitions. Test rows are invented. Private reports and the user's numeric totals are not committed.
 
-The observed schema contains `Body` (key: system + body), `Genus` (key: system + body + name), `StarSystem`, and `Ring`. `tests/fixtures/edeb-schema-279.json` retains only the table definitions from the report; it contains no user rows, travel history or displayed totals. The first report contains **schema only**, so the two totals supplied alongside it cannot yet validate any SQL sum.
+## Implemented formula and safeguards
 
-The updated inspector now aggregates the existing EDEB value columns on its temporary copy. It does not recalculate bonus formulas. It reports three scopes: systems with `IsTripHistory = 1`, all systems, and systems with `IsTripHistory = 0`. For each scope it reports:
+`telemetry/source.py` uses the equivalent of these two separate queries and adds their results:
 
-- Cartography: all bodies, and separately only `WasReadFromJournal = 1` bodies.
-- Biology: all genera, and separately only `AnalysisComplete = 1` genera.
-- The four combinations of these component sums, with differences against the displayed totals if supplied.
-- NULL/invalid values, orphan row counts and trip-flag distribution to expose assumptions rather than silently hide inconsistencies.
+```sql
+SELECT COALESCE(SUM(b.CartographicValue), 0)
+FROM Body b
+WHERE EXISTS (
+    SELECT 1 FROM StarSystem s
+    WHERE s.Id = b.StarSystemId AND s.IsTripHistory = 1
+);
 
-Body and genus sums are **separate**. Joining bodies directly to multiple genera would multiply cartographic values. Stored total columns are used without adding their bonus component columns a second time. NULL values contribute zero for this diagnostic only and their counts are retained; the intended production semantics still need validation.
+SELECT COALESCE(SUM(g.VistaGenomicsValue), 0)
+FROM Genus g
+WHERE EXISTS (
+    SELECT 1 FROM StarSystem s
+    WHERE s.Id = g.StarSystemId AND s.IsTripHistory = 1
+);
+```
 
-On Shadow, update with `git pull --ff-only`. Then supply the two **current** displayed totals as integer arguments, without spaces or separators:
+No direct Body-to-Genus join: multiple genera on a body must not multiply its cartographic value. No maximum-value columns, extra system rewards or separate bonus columns are added. The reader uses the actual value columns already calculated by EDEB. It reads the existing expedition in full at first startup, without subtracting an installation-time baseline.
+
+To avoid silently resolving the filter ambiguity, the reader refuses a reading if any selected body has nonzero value without `WasReadFromJournal = 1`, or if any selected genus has nonzero value without `AnalysisComplete = 1`. Under the observed conditions, filtered and unfiltered formulas agree. A future disagreement produces `filters no longer agree`; run the comparison diagnostic and investigate instead of choosing a filter arbitrarily.
+
+The reader checks the exact observed schema fingerprint and database version, SQLite `quick_check`, integer/nonnegative selected values, valid 0/1 trip flags and orphan rows. NULL monetary values in the current trip are refused (the diagnostic merely counted them and treated them as zero). New schema/version combinations require renewed verification and an entry in `SUPPORTED_SCHEMAS`; there is no silent fallback after an EDEB upgrade.
+
+## Non-destructive production reads
+
+`telemetry/sqlite_snapshot.py` opens original DB/WAL files only as binary read streams. It does **not** open the original database using SQLite, even in `mode=ro`, because WAL shared-memory sidecars can otherwise be created or changed by SQLite. The original database is never migrated, checkpointed or repaired.
+
+For each read:
+
+1. Inspect database/WAL/rollback-journal sizes and modification times. Refuse a missing DB, a nonempty rollback journal or a total above 512 MiB.
+2. Copy database and existing WAL to a private temporary directory while hashing their bytes. Do not copy SHM; SQLite can rebuild it only in the temporary directory.
+3. Compare original metadata, re-read/hash original bytes and compare metadata again. Refuse any change, with a two-second cooperative copy deadline.
+4. Open only the private copy in SQLite, set `query_only`, validate schema/integrity and sum values with a two-second SQL deadline.
+5. Close the SQLite connection and delete the temporary directory.
+
+This double-checked raw copy is **not an application-level atomic snapshot guarantee**. It detects observed byte/metadata changes and malformed copies, but cannot prove semantic consistency across separate EDEB transactions. It may refuse readings during intensive activity and recover once a stable copy is available. The deadlines are checked between file blocks/SQL operations, not a hard interruption of an OS disk read. No persistent source locks are taken. Large databases can impose I/O load at the default 0.5-second interval; increase `read_interval` if necessary.
+
+A failed read sends nothing, retains the last receiver value and retries after two seconds. Warnings are limited to one every 30 seconds during a continuous failure; recovery is logged. An old cached value is not proof that EDEB is currently running.
+
+## First real-reader check on Shadow
+
+Leave EDEB open with the correct commander, pause exploration activity briefly, then run from the updated repository:
+
+```powershell
+git pull --ff-only
+py -3 -m telemetry.source
+```
+
+No token, receiver, Tailscale, virtual environment or config is required for this one-shot check beyond Python 3.11+. It prints the current trip and its cartographic/biological components and exits. Compare to EDEB. A custom database path can be checked with:
+
+```powershell
+py -3 -m telemetry.source --database 'D:\Custom EDEB\db\EDEB.db'
+```
+
+For the continuous sender, optional `edeb_db_path` in `config.local.json` overrides the default. Leave it empty for automatic `%LOCALAPPDATA%` detection; existing configurations without the key remain valid. See [INSTALL.md](INSTALL.md) for token/network setup.
+
+## Diagnostic and value comparison
+
+The original diagnostic remains available, using disposable copies. It inventories file signatures and schema; `-IncludeSamples` is optional and may include private data. For ordinary aggregate comparison no samples are needed:
 
 ```powershell
 $trip = Read-Host 'Current Exploration Trip, digits only'
@@ -45,50 +96,20 @@ $history = Read-Host 'Entire Exploration History, digits only'
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1 -TripValue $trip -HistoryValue $history -OutputPath .\reports\edeb-values.json
 ```
 
-Keep EDEB/game activity still while recording the displayed totals and running the comparison. If the values have changed since the earlier report, use the newer values. Send `reports/edeb-values.json` after local review. No `-IncludeSamples` is needed: the new section `edeb_value_comparison` contains aggregate numbers, not names or coordinates.
+Use values displayed at the time of inspection. Review the resulting report locally before sharing it. Aggregate comparisons do not export names or coordinates. The inspector shows trip/all/non-trip scopes, four candidate combinations, NULL/invalid counts, orphans and differences; `matching_pairs` is evidence for that snapshot only.
 
-`matching_pairs` lists candidate filters that reproduce **both** the trip-flag-1 total and the all-systems history total. An empty list means no exact match; several entries mean the sample does not distinguish the filters. Even one match is evidence for one snapshot, not proof of the underlying reset or scan semantics. The production sender stays disabled while those semantics are unverified.
+The general inspector uses a simpler metadata-stable copy of DB/WAL/SHM/journal files, SQL query-only mode, a three-second SQL deadline, a 512 MiB snapshot limit and a 2,000-file inventory limit. Its copies likewise are not a guaranteed atomic snapshot. Unknown formats are reported as unknown. Neither tool ever writes to original EDEB data.
 
-## Run discovery on Shadow
+## Remaining real-environment acceptance checks
 
-Leave EDEB operating normally. Do **not** reset your two-week expedition for a test. Install Python 3.11+ with the Windows `py` launcher, then from this repository:
+- Run the new reader on Shadow and compare its initial result to EDEB.
+- Compare again after a normal cartographic scan, DSS mapping, completed exobiology and a system revisit. Watch for temporary read refusals while EDEB updates.
+- Confirm network delivery and OBS behavior on the actual machines.
+- When the owner actually starts a new expedition, verify the native EDEB reset and resulting zero/lower value. Do not sacrifice the current trip for development. Synthetic tests already verify behavior when trip flags change; this does not establish the implementation of EDEB's reset.
+- Multi-commander semantics have not been established: run one EDEB/commander/sender at a time and compare totals after changing commander.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\inspect-edeb.ps1
-Get-Content .\reports\edeb-inspection.json
-```
+## Public references and journal fallback
 
-Record, at the same time, the exact **Current Exploration Trip** total shown in EDEB and, if displayed separately, cartographic and biological components. Also record the EDEB version and time. Repeat after a known in-game scan with a different report filename:
+The [official EDEB page](https://www.panostrede.de/EDEB/) describes separate current-trip/overall-history values, Vista Genomics inclusion and the native trip-reset command. The [changelog](https://www.panostrede.de/EDEB/changelog.html) records database and valuation changes. Consulted 2026-09-06. Neither documents the exact SQL; the local schema and aggregate reports are the evidence for this adapter.
 
-```powershell
-.\tools\inspect-edeb.ps1 -OutputPath .\reports\edeb-after-scan.json
-```
-
-The report contains relative file names, sizes, signature identification, and SQLite schema/fingerprint where recognized. It does not read row contents by default. If the schema report alone is insufficient, an explicit opt-in collects up to three rows per table from private copies:
-
-```powershell
-.\tools\inspect-edeb.ps1 -IncludeSamples -OutputPath .\reports\edeb-private-samples.json
-```
-
-These samples may contain commander names, travel history or other private data. Review locally and share only relevant redacted portions; reports are gitignored. Three sample rows cannot establish a complete expedition value.
-
-## Non-destructive behavior and limitations
-
-The diagnostic opens original files only as byte streams for reading. It never opens the original with a database engine, never migrates it, and never invokes EDEB. For recognized SQLite files it copies the database and any WAL, SHM and rollback-journal companions into an automatically deleted temporary directory. It compares file sizes and modification times before/after copying and refuses to inspect a changing copy. It never changes permissions on original files.
-
-SQLite runs only against the copies, with `query_only`, a short busy timeout and a three-second SQL execution deadline. Snapshots above 512 MiB are refused; inventory stops at 2,000 files. No persistent source locks are held. Copying large files can still cause short disk I/O load. A size/mtime check is **not** a transaction-consistent snapshot guarantee. Inconclusive or locked copies require a later retry; if necessary close EDEB normally, inspect, then reopen it. A hot rollback journal may prevent inspection rather than produce a reliable report. Unknown formats are reported as unknown, never decoded speculatively.
-
-## Completing the production adapter
-
-1. Establish the engine and file set from the report; investigate unknown signatures using format-specific tooling on copies.
-2. Identify the current-trip boundary and the exact EDEB total or calculation, distinct from overall history. Schema names alone are insufficient evidence.
-3. Compare against the existing expedition before any reset, then after mapping, completed exobiology and revisiting a system. Verify the commander's identity if the store supports multiple commanders.
-4. Only when the owner actually starts a new expedition, compare before/after the native EDEB reset. Never reset the current expedition for development.
-5. Implement `telemetry/source.py` with read-only or consistent snapshot access appropriate to the verified engine, bounded lock/retry behavior, version/schema checks and explicit errors on incompatibility. Add sanitized representative fixtures, including reset and schema mismatch cases.
-6. Document files, fields, boundary, equations, rounding, evidence and observed version here. A matching number on one sample alone does not validate the adapter.
-
-The existing sender already sends the first successful read in full, without subtracting a baseline. No artificial “new system” bonus is applied anywhere.
-
-## Journals fallback
-
-Typical journals live at `%USERPROFILE%\Saved Games\Frontier Developments\Elite Dangerous\Journal.*.log`. They have not been available for inspection here. A faithful fallback needs complete historical journals, the actual EDEB trip boundary, the same valuation/bonus rules, and comparison to the displayed current trip. Reconstructing only post-installation events would lose the ongoing expedition. Therefore no journal approximation is labelled as the EDEB total or used as a silent fallback.
+Journals typically live at `%USERPROFILE%\Saved Games\Frontier Developments\Elite Dangerous\Journal.*.log`. No journal fallback is implemented: using only post-installation events would lose the ongoing expedition, and a faithful reconstruction would require the actual EDEB boundary and matching bonus rules. Stored EDEB values are the preferred source.

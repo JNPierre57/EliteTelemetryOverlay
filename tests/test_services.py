@@ -12,7 +12,7 @@ from unittest.mock import patch
 from telemetry.common import MAX_VALUE, ROOT, credits, payload, timestamp, allowed_ip, config
 from telemetry.receiver import State, handler
 from telemetry.sender import Sender, send
-from telemetry.source import read_current_trip, UnverifiedSourceError
+from telemetry.source import read_current_trip, SourceError
 from tools.inspect_edeb import inspect
 
 
@@ -46,9 +46,10 @@ class ValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config(path)
 
-    def test_no_unverified_read(self):
-        with self.assertRaises(UnverifiedSourceError):
-            read_current_trip()
+    def test_missing_database_does_not_return_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(SourceError):
+                read_current_trip(Path(directory) / 'missing.db')
 
     def test_network_scope(self):
         for ip in ('127.0.0.1', '100.64.0.1', '100.127.255.254'):

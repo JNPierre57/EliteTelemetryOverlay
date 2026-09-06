@@ -20,7 +20,7 @@ The JavaScript test covers credit grouping, cosmetic decimals, separator literal
 4. Restart the receiver; observe persisted value. Reload OBS; no animation from zero.
 5. Reduce Browser Source width; verify fit, transparency over actual stream video, and readability.
 6. Enable reduced motion; verify immediate updates. Test rapid successive updates during animation.
-7. Repeat on Shadow → Mac Tailscale with the shared token, then validate the real EDEB adapter when implemented.
+7. Repeat on Shadow → Mac Tailscale with the shared token, then compare the real EDEB reader to the displayed current trip.
 
 Not validated by synthetic tests: production reading of EDEB values, trip boundary, total calculation, real lock behavior, OBS embedded-browser behavior, Windows installation on Shadow, or the actual tailnet/firewall. These need the user's environment. See EDEB-DATA-SOURCE.md before claiming production readiness.
 
@@ -28,10 +28,16 @@ Not validated by synthetic tests: production reading of EDEB values, trip bounda
 
 - 15 Python unittest cases passed on the local Mac, including a live WAL fixture whose source database/WAL/SHM byte hashes remain unchanged.
 - Node credit-formatting tests passed; JavaScript, shell and PowerShell syntax checked.
-- Mac installer created a virtual environment and local configuration; normal sender exited with the intended unverified-source error.
+- Mac installer created a virtual environment and local configuration; the then-disabled sender exited with its intended error (superseded by the real reader below).
 - Full localhost demo sender/receiver sequence ran. In-app browser visibly showed 12 847 563 420 Cr, then 0 Cr with DEMO; computed background alpha was zero. This is not an OBS integration test.
 - Local secret and cache excluded from Git; repository content checked without printing the secret.
 
 ## Follow-up after the Shadow schema report
 
 20 Python tests pass locally, including five new cases using the reported table definitions with synthetic rows: independent cartography/biology sums (multiple genera per body), matching both displayed totals, explicit mismatch, invalid/orphan rows, missing schema columns, and a synthetic trip-flag reset without changing the original file. This flag test does not establish what EDEB itself does on reset. Aggregate reports are checked to omit synthetic system/genus names. The JavaScript tests and PowerShell parser also pass.
+
+## Reader implementation after exact aggregate matches
+
+30 Python tests pass locally. Ten new source tests exercise the observed schema with synthetic rows: existing trip versus lifetime, first read without a baseline, increases, trip-flag reset, new selection, unknown schema/version, filter ambiguity, invalid/NULL/fractional values, orphan rows, invalid flags, WAL reads without changes to source hashes, active journals, changing bytes and sender recovery without publishing stale pending values or zero. JavaScript tests still pass.
+
+The user's second report reproduces both displayed totals exactly with stored-value aggregates. The reader's new process has not yet been executed on Shadow, and native EDEB reset/scan transitions, live OBS and Tailscale still require real-environment acceptance. No personal totals or raw reports are stored as test fixtures.

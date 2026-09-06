@@ -72,5 +72,10 @@ def config(path):
         raise ValueError('state_file must be a nonempty path')
     if not isinstance(data.get('receiver_url'), str):
         raise ValueError('receiver_url must be a URL string')
+    database = data.get('edeb_db_path', '')
+    if not isinstance(database, str):
+        raise ValueError('edeb_db_path must be a string (empty for the Windows default)')
+    if database:
+        data['edeb_db_path'] = str(path.parent / Path(os.path.expandvars(database)).expanduser())
     data['state_file'] = str(path.parent / data['state_file'])
     return data
